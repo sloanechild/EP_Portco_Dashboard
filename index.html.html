@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio KPI Dashboard - Multi-Company View</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            color: #111827;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+        
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
+        
+        .controls {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            margin-bottom: 30px;
+        }
+        
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: flex-start;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .time-filter select {
+            padding: 10px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+            font-size: 1rem;
+            color: #374151;
+            cursor: pointer;
+        }
+        
+        .time-filter select:focus {
+            outline: none;
+            border-color: #8b5cf6;
+        }
+        
+        .company-checkboxes {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        
+        .checkbox-item:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-item span {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .company-bb { border-left: 4px solid #06b6d4; }
+        .company-port { border-left: 4px solid #8b5cf6; }
+        .company-iten { border-left: 4px solid #10b981; }
+        
+        .charts-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .charts-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .charts-grid-1 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            position: relative;
+        }
+        
+        .chart-container h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+        
+        .chart-wrapper-small {
+            position: relative;
+            height: 280px;
+        }
+        
+        .chart-container:hover {
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+        }
+        
+        .chart-click-hint {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .chart-container:hover .chart-click-hint {
+            opacity: 1;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 80%;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 15px;
+        }
+        
+        .modal-header h2 {
+            color: #1f2937;
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        
+        .close-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .close-btn:hover {
+            background: #dc2626;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .data-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            position: sticky;
+            top: 0;
+        }
+        
+        .data-table tr:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .data-table .number {
+            text-align: right;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .data-table .positive {
+            color: #059669;
+        }
+        
+        .data-table .negative {
+            color: #dc2626;
+        }
+        
+        .status-banner {
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 40px;
+        }
+        
+        .status-banner h3 {
+            color: #065f46;
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+        }
+        
+        .status-banner p {
+            color: #047857;
+            margin-bottom: 16px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            font-size: 0.875rem;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Portfolio KPI Dashboard</h1>
+            <p>Multi-Company Investment Performance Tracking • Q1 2024 - Q1 2025</p>
+        </div>
+
+        <!-- Enhanced Controls -->
+        <div class="controls">
+            <div class="controls-row">
+                <div class="control-group time-filter">
+                    <label>Time Period</label>
+                    <select id="timeRange">
+                        <option value="all">All Time (5 Quarters)</option>
+                        <option value="last4">Last 4 Quarters</option>
+                        <option value="last3">Last 3 Quarters</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Select Companies</label>
+                    <div class="company-checkboxes">
+                        <div class="checkbox-item company-bb">
+                            <input type="checkbox" id="company-bb" value="BB" checked>
+                            <span>BackBox</span>
+                        </div>
+                        <div class="checkbox-item company-port">
+                            <input type="checkbox" id="company-port" value="PORT" checked>
+                            <span>Portnox</span>
+                        </div>
+                        <div class="checkbox-item company-iten">
+                            <input type="checkbox" id="company-iten" value="ITEN" checked>
+                            <span>Itential</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Charts Row 1 -->
+        <div class="charts-grid-2">
+            <div class="chart-container" onclick="showTableView('arrChart', 'ARR Growth Trajectory ($M)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>ARR Growth Trajectory ($M)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="arrChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('growthChart', 'YoY Growth Rate (%)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>YoY Growth Rate (%)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="charts-grid-2">
+            <div class="chart-container" onclick="showTableView('grossRetentionChart', 'Gross Retention (%)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Gross Retention (%)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="grossRetentionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('netRetentionChart', 'Net Retention (%)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Net Retention (%)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="netRetentionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 3 -->
+        <div class="charts-grid-1">
+            <div class="chart-container" onclick="showTableView('ruleOf40Chart', 'Rule of 40 Trend')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Rule of 40 Trend</h3>
+                <div class="chart-wrapper">
+                    <canvas id="ruleOf40Chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 4 -->
+        <div class="charts-grid-3">
+            <div class="chart-container" onclick="showTableView('ebitdaChart', 'LTM EBITDA ($M)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>LTM EBITDA ($M)</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="ebitdaChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('bookingsChart', 'New + Expand Bookings ($M)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>New + Expand Bookings ($M)</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="bookingsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('bookingsPlanChart', 'New + Expand Bookings % of Plan')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>New + Expand Bookings % of Plan</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="bookingsPlanChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 5 -->
+        <div class="charts-grid-3">
+            <div class="chart-container" onclick="showTableView('headcountChart', 'Headcount Growth')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Headcount Growth</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="headcountChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('cashChart', 'Cash Position ($M)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Cash Position ($M)</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="cashChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container" onclick="showTableView('debtChart', 'Debt Position ($M)')">
+                <div class="chart-click-hint">Click for table view</div>
+                <h3>Debt Position ($M)</h3>
+                <div class="chart-wrapper-small">
+                    <canvas id="debtChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Table View -->
+        <div id="tableModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Chart Data</h2>
+                    <button class="close-btn" onclick="closeTableView()">✕ Close</button>
+                </div>
+                <div id="tableContainer">
+                    <!-- Table will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Banner -->
+        <div class="status-banner">
+            <h3>✅ Updated Multi-Company Portfolio Dashboard</h3>
+            <p>Your dashboard now shows the latest 5 quarters (Q1 2024 - Q1 2025) with updated performance metrics.</p>
+            <div class="status-grid">
+                <div>🏢 <strong>Companies:</strong> BackBox, Portnox, Itential</div>
+                <div>📊 <strong>Metrics:</strong> 12 KPIs tracked</div>
+                <div>📅 <strong>Period:</strong> Q1 2024 - Q1 2025 (5 quarters)</div>
+                <div>💼 <strong>Combined ARR:</strong> $50.8M (Q1 2025)</div>
+                <div>👥 <strong>Total Headcount:</strong> 340 employees</div>
+                <div>📈 <strong>Sales Performance:</strong> % of Plan tracking</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Updated data from Excel file - Q1 2024 to Q1 2025 only
+        const data = [
+            {
+                "quarter": "Q1 2024",
+                "BB_ARR": 8.38,
+                "PORT_ARR": 11.30,
+                "ITEN_ARR": 20.67,
+                "BB_ARR_Growth": 18.00,
+                "PORT_ARR_Growth": 35.45,
+                "ITEN_ARR_Growth": 21.76,
+                "BB_New_Expand_Bookings": 0.66,
+                "PORT_New_Expand_Bookings": 1.10,
+                "ITEN_New_Expand_Bookings": 0.58,
+                "BB_New_Expand_Bookings_of_Plan": 91.78,
+                "PORT_New_Expand_Bookings_of_Plan": 106.05,
+                "ITEN_New_Expand_Bookings_of_Plan": 31.76,
+                "BB_New_Expand_Bookings_Growth": 13.85,
+                "PORT_New_Expand_Bookings_Growth": 42.65,
+                "ITEN_New_Expand_Bookings_Growth": 12.07,
+                "BB_Gross_Retention": 89.87,
+                "PORT_Gross_Retention": 84.22,
+                "ITEN_Gross_Retention": 91.40,
+                "BB_Net_Retention": 104.50,
+                "PORT_Net_Retention": 99.24,
+                "ITEN_Net_Retention": 109.84,
+                "BB_LTM_EBITDA": -2.22,
+                "PORT_LTM_EBITDA": -4.40,
+                "ITEN_LTM_EBITDA": -3.63,
+                "BB_Rule_of_40_FCF": -6.01,
+                "PORT_Rule_of_40_FCF": -17.02,
+                "ITEN_Rule_of_40_FCF": 11.17,
+                "BB_Headcount": 45,
+                "PORT_Headcount": 79,
+                "ITEN_Headcount": 178,
+                "BB_Cash": 2.83,
+                "PORT_Cash": 9.14,
+                "ITEN_Cash": 11.45,
+                "BB_Debt": 2.45,
+                "PORT_Debt": 14.08,
+                "ITEN_Debt": 0.77
+            },
+            {
+                "quarter": "Q2 2024",
+                "BB_ARR": 8.72,
+                "PORT_ARR": 12.39,
+                "ITEN_ARR": 21.58,
+                "BB_ARR_Growth": 17.45,
+                "PORT_ARR_Growth": 41.24,
+                "ITEN_ARR_Growth": 33.37,
+                "BB_New_Expand_Bookings": 0.58,
+                "PORT_New_Expand_Bookings": 1.21,
+                "ITEN_New_Expand_Bookings": 1.33,
+                "BB_New_Expand_Bookings_of_Plan": 98.87,
+                "PORT_New_Expand_Bookings_of_Plan": 94.91,
+                "ITEN_New_Expand_Bookings_of_Plan": 107.35,
+                "BB_New_Expand_Bookings_Growth": 37.41,
+                "PORT_New_Expand_Bookings_Growth": 24.41,
+                "ITEN_New_Expand_Bookings_Growth": 742.48,
+                "BB_Gross_Retention": 88.54,
+                "PORT_Gross_Retention": 89.12,
+                "ITEN_Gross_Retention": 94.87,
+                "BB_Net_Retention": 104.41,
+                "PORT_Net_Retention": 102.92,
+                "ITEN_Net_Retention": 113.83,
+                "BB_LTM_EBITDA": -1.86,
+                "PORT_LTM_EBITDA": -4.31,
+                "ITEN_LTM_EBITDA": -5.13,
+                "BB_Rule_of_40_FCF": -1.18,
+                "PORT_Rule_of_40_FCF": 3.75,
+                "ITEN_Rule_of_40_FCF": 18.11,
+                "BB_Headcount": 45,
+                "PORT_Headcount": 98,
+                "ITEN_Headcount": 185,
+                "BB_Cash": 5.51,
+                "PORT_Cash": 8.27,
+                "ITEN_Cash": 7.26,
+                "BB_Debt": 5.50,
+                "PORT_Debt": 14.00,
+                "ITEN_Debt": 0.77
+            },
+            {
+                "quarter": "Q3 2024",
+                "BB_ARR": 9.12,
+                "PORT_ARR": 13.56,
+                "ITEN_ARR": 19.55,
+                "BB_ARR_Growth": 17.18,
+                "PORT_ARR_Growth": 39.62,
+                "ITEN_ARR_Growth": 7.28,
+                "BB_New_Expand_Bookings": 0.63,
+                "PORT_New_Expand_Bookings": 1.58,
+                "ITEN_New_Expand_Bookings": 1.31,
+                "BB_New_Expand_Bookings_of_Plan": 77.56,
+                "PORT_New_Expand_Bookings_of_Plan": 103.48,
+                "ITEN_New_Expand_Bookings_of_Plan": 106.17,
+                "BB_New_Expand_Bookings_Growth": 1.50,
+                "PORT_New_Expand_Bookings_Growth": 36.71,
+                "ITEN_New_Expand_Bookings_Growth": -40.55,
+                "BB_Gross_Retention": 89.35,
+                "PORT_Gross_Retention": 88.35,
+                "ITEN_Gross_Retention": 80.99,
+                "BB_Net_Retention": 103.41,
+                "PORT_Net_Retention": 101.89,
+                "ITEN_Net_Retention": 86.91,
+                "BB_LTM_EBITDA": -2.20,
+                "PORT_LTM_EBITDA": -4.33,
+                "ITEN_LTM_EBITDA": -5.54,
+                "BB_Rule_of_40_FCF": -5.81,
+                "PORT_Rule_of_40_FCF": 3.57,
+                "ITEN_Rule_of_40_FCF": -9.52,
+                "BB_Headcount": 44,
+                "PORT_Headcount": 99,
+                "ITEN_Headcount": 178,
+                "BB_Cash": 3.68,
+                "PORT_Cash": 5.95,
+                "ITEN_Cash": 3.67,
+                "BB_Debt": 5.50,
+                "PORT_Debt": 13.36,
+                "ITEN_Debt": 0.77
+            },
+            {
+                "quarter": "Q4 2024",
+                "BB_ARR": 9.38,
+                "PORT_ARR": 14.50,
+                "ITEN_ARR": 22.34,
+                "BB_ARR_Growth": 17.66,
+                "PORT_ARR_Growth": 40.89,
+                "ITEN_ARR_Growth": 8.80,
+                "BB_New_Expand_Bookings": 0.60,
+                "PORT_New_Expand_Bookings": 1.60,
+                "ITEN_New_Expand_Bookings": 3.45,
+                "BB_New_Expand_Bookings_of_Plan": 54.59,
+                "PORT_New_Expand_Bookings_of_Plan": 66.91,
+                "ITEN_New_Expand_Bookings_of_Plan": 93.15,
+                "BB_New_Expand_Bookings_Growth": 58.27,
+                "PORT_New_Expand_Bookings_Growth": 28.53,
+                "ITEN_New_Expand_Bookings_Growth": 49.05,
+                "BB_Gross_Retention": 88.17,
+                "PORT_Gross_Retention": 90.23,
+                "ITEN_Gross_Retention": 78.28,
+                "BB_Net_Retention": 101.92,
+                "PORT_Net_Retention": 100.65,
+                "ITEN_Net_Retention": 90.84,
+                "BB_LTM_EBITDA": -2.78,
+                "PORT_LTM_EBITDA": -5.12,
+                "ITEN_LTM_EBITDA": 2.74,
+                "BB_Rule_of_40_FCF": -11.95,
+                "PORT_Rule_of_40_FCF": 15.82,
+                "ITEN_Rule_of_40_FCF": 15.36,
+                "BB_Headcount": 58,
+                "PORT_Headcount": 103,
+                "ITEN_Headcount": 162,
+                "BB_Cash": 2.86,
+                "PORT_Cash": 3.66,
+                "ITEN_Cash": 4.89,
+                "BB_Debt": 5.50,
+                "PORT_Debt": 14.00,
+                "ITEN_Debt": 0.42
+            },
+            {
+                "quarter": "Q1 2025",
+                "BB_ARR": 11.00,
+                "PORT_ARR": 15.78,
+                "ITEN_ARR": 24.05,
+                "BB_ARR_Growth": 31.22,
+                "PORT_ARR_Growth": 39.65,
+                "ITEN_ARR_Growth": 16.35,
+                "BB_New_Expand_Bookings": 1.91,
+                "PORT_New_Expand_Bookings": 1.48,
+                "ITEN_New_Expand_Bookings": 2.14,
+                "BB_New_Expand_Bookings_of_Plan": 87.00,
+                "PORT_New_Expand_Bookings_of_Plan": 99.94,
+                "ITEN_New_Expand_Bookings_of_Plan": 70.78,
+                "BB_New_Expand_Bookings_Growth": 187.41,
+                "PORT_New_Expand_Bookings_Growth": 34.51,
+                "ITEN_New_Expand_Bookings_Growth": 267.81,
+                "BB_Gross_Retention": 88.26,
+                "PORT_Gross_Retention": 89.79,
+                "ITEN_Gross_Retention": 78.47,
+                "BB_Net_Retention": 99.11,
+                "PORT_Net_Retention": 99.90,
+                "ITEN_Net_Retention": 96.02,
+                "BB_LTM_EBITDA": -3.36,
+                "PORT_LTM_EBITDA": -5.60,
+                "ITEN_LTM_EBITDA": 4.60,
+                "BB_Rule_of_40_FCF": -3.25,
+                "PORT_Rule_of_40_FCF": 7.42,
+                "ITEN_Rule_of_40_FCF": 26.83,
+                "BB_Headcount": 60,
+                "PORT_Headcount": 108,
+                "ITEN_Headcount": 172,
+                "BB_Cash": 1.05,
+                "PORT_Cash": 5.08,
+                "ITEN_Cash": 15.33,
+                "BB_Debt": 5.50,
+                "PORT_Debt": 17.00,
+                "ITEN_Debt": 0.11
+            }
+        ];
+
+        const colors = {
+            bb: '#06b6d4',
+            port: '#8b5cf6',
+            iten: '#10b981',
+            grid: '#f1f5f9'
+        };
+
+        const companyNames = {
+            'BB': 'BackBox',
+            'PORT': 'Portnox',
+            'ITEN': 'Itential'
+        };
+
+        let charts = {};
+
+        function getSelectedCompanies() {
+            const selected = [];
+            if (document.getElementById('company-bb').checked) selected.push('BB');
+            if (document.getElementById('company-port').checked) selected.push('PORT');
+            if (document.getElementById('company-iten').checked) selected.push('ITEN');
+            return selected;
+        }
+
+        function getFilteredData() {
+            const timeRange = document.getElementById('timeRange').value;
+            let filteredData = [...data];
+            
+            switch(timeRange) {
+                case 'last3':
+                    filteredData = data.slice(-3);
+                    break;
+                case 'last4':
+                    filteredData = data.slice(-4);
+                    break;
+                default:
+                    filteredData = data;
+            }
+            
+            return filteredData;
+        }
+
+        function createChart(chartId, type, chartData, options = {}) {
+            const ctx = document.getElementById(chartId).getContext('2d');
+            if (charts[chartId]) {
+                charts[chartId].destroy();
+            }
+            charts[chartId] = new Chart(ctx, {
+                type: type,
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: colors.grid
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: colors.grid
+                            }
+                        }
+                    },
+                    ...options
+                }
+            });
+        }
+
+        function updateCharts() {
+            const filteredData = getFilteredData();
+            const selectedCompanies = getSelectedCompanies();
+            const quarters = filteredData.map(d => d.quarter);
+
+            // ARR Chart - All data
+            const arrDatasets = [];
+            selectedCompanies.forEach(company => {
+                arrDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_ARR`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('arrChart', 'line', {
+                labels: quarters,
+                datasets: arrDatasets
+            });
+
+            // Growth Chart - All data (since all data is Q1 2024 onwards)
+            const growthDatasets = [];
+            selectedCompanies.forEach(company => {
+                growthDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_ARR_Growth`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('growthChart', 'line', {
+                labels: quarters,
+                datasets: growthDatasets
+            });
+
+            // Gross Retention Chart - All data (since all data is relevant)
+            const grossRetentionDatasets = [];
+            selectedCompanies.forEach(company => {
+                grossRetentionDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Gross_Retention`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('grossRetentionChart', 'line', {
+                labels: quarters,
+                datasets: grossRetentionDatasets
+            }, {
+                scales: {
+                    y: {
+                        min: 75,
+                        max: 100
+                    }
+                }
+            });
+
+            // Net Retention Chart - All data
+            const netRetentionDatasets = [];
+            selectedCompanies.forEach(company => {
+                netRetentionDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Net_Retention`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('netRetentionChart', 'line', {
+                labels: quarters,
+                datasets: netRetentionDatasets
+            }, {
+                scales: {
+                    y: {
+                        min: 95,
+                        max: 120
+                    }
+                }
+            });
+
+            // Rule of 40 Chart - All data (since all data is Q1 2024 onwards)
+            const ruleOf40Datasets = [];
+            selectedCompanies.forEach(company => {
+                ruleOf40Datasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Rule_of_40_FCF`]),
+                    backgroundColor: colors[company.toLowerCase()] + '80',
+                    borderColor: colors[company.toLowerCase()],
+                    borderWidth: 1
+                });
+            });
+
+            createChart('ruleOf40Chart', 'bar', {
+                labels: quarters,
+                datasets: ruleOf40Datasets
+            });
+
+            // Headcount Chart - All data
+            const headcountDatasets = [];
+            selectedCompanies.forEach(company => {
+                headcountDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Headcount`]),
+                    backgroundColor: colors[company.toLowerCase()],
+                    borderColor: colors[company.toLowerCase()],
+                    borderWidth: 1
+                });
+            });
+
+            createChart('headcountChart', 'bar', {
+                labels: quarters,
+                datasets: headcountDatasets
+            });
+
+            // Cash Chart - All data
+            const cashDatasets = [];
+            selectedCompanies.forEach(company => {
+                cashDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Cash`]),
+                    backgroundColor: colors[company.toLowerCase()],
+                    borderColor: colors[company.toLowerCase()],
+                    borderWidth: 1
+                });
+            });
+
+            createChart('cashChart', 'bar', {
+                labels: quarters,
+                datasets: cashDatasets
+            });
+
+            // EBITDA Chart - All data
+            const ebitdaDatasets = [];
+            selectedCompanies.forEach(company => {
+                ebitdaDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_LTM_EBITDA`]),
+                    backgroundColor: colors[company.toLowerCase()],
+                    borderColor: colors[company.toLowerCase()],
+                    borderWidth: 1
+                });
+            });
+
+            createChart('ebitdaChart', 'bar', {
+                labels: quarters,
+                datasets: ebitdaDatasets
+            });
+
+            // Bookings Chart - All data
+            const bookingsDatasets = [];
+            selectedCompanies.forEach(company => {
+                bookingsDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_New_Expand_Bookings`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('bookingsChart', 'line', {
+                labels: quarters,
+                datasets: bookingsDatasets
+            });
+
+            // Bookings % of Plan Chart - All data
+            const bookingsPlanDatasets = [];
+            selectedCompanies.forEach(company => {
+                bookingsPlanDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_New_Expand_Bookings_of_Plan`]),
+                    borderColor: colors[company.toLowerCase()],
+                    backgroundColor: colors[company.toLowerCase()] + '20',
+                    tension: 0.4,
+                    borderWidth: 3
+                });
+            });
+
+            createChart('bookingsPlanChart', 'line', {
+                labels: quarters,
+                datasets: bookingsPlanDatasets
+            }, {
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 250
+                    }
+                }
+            });
+
+            // Debt Chart - All data
+            const debtDatasets = [];
+            selectedCompanies.forEach(company => {
+                debtDatasets.push({
+                    label: companyNames[company],
+                    data: filteredData.map(d => d[`${company}_Debt`]),
+                    backgroundColor: colors[company.toLowerCase()],
+                    borderColor: colors[company.toLowerCase()],
+                    borderWidth: 1
+                });
+            });
+
+            createChart('debtChart', 'bar', {
+                labels: quarters,
+                datasets: debtDatasets
+            });
+        }
+
+        // Table view functionality
+        function showTableView(chartId, title) {
+            // Since all our data is now Q1 2024 - Q1 2025, use filtered data from time range selector for all charts
+            const tableData = getFilteredData();
+            const selectedCompanies = getSelectedCompanies();
+            
+            document.getElementById('modalTitle').textContent = title + ' - Data Table';
+            
+            let tableHtml = '<table class="data-table"><thead><tr>';
+            tableHtml += '<th>Quarter</th>';
+            
+            // Determine metric based on chart ID
+            let metric = '';
+            switch(chartId) {
+                case 'arrChart': metric = 'ARR'; break;
+                case 'growthChart': metric = 'ARR_Growth'; break;
+                case 'grossRetentionChart': metric = 'Gross_Retention'; break;
+                case 'netRetentionChart': metric = 'Net_Retention'; break;
+                case 'ruleOf40Chart': metric = 'Rule_of_40_FCF'; break;
+                case 'headcountChart': metric = 'Headcount'; break;
+                case 'cashChart': metric = 'Cash'; break;
+                case 'ebitdaChart': metric = 'LTM_EBITDA'; break;
+                case 'bookingsChart': metric = 'New_Expand_Bookings'; break;
+                case 'bookingsPlanChart': metric = 'New_Expand_Bookings_of_Plan'; break;
+                case 'debtChart': metric = 'Debt'; break;
+            }
+            
+            selectedCompanies.forEach(company => {
+                tableHtml += `<th class="number">${companyNames[company]}</th>`;
+            });
+            
+            if (selectedCompanies.length > 1) {
+                tableHtml += '<th class="number">Total</th>';
+            }
+            
+            tableHtml += '</tr></thead><tbody>';
+            
+            tableData.forEach(row => {
+                tableHtml += '<tr>';
+                tableHtml += `<td><strong>${row.quarter}</strong></td>`;
+                
+                let total = 0;
+                selectedCompanies.forEach(company => {
+                    const value = row[`${company}_${metric}`];
+                    total += value;
+                    const formatValue = metric.includes('Growth') || metric.includes('Retention') || metric.includes('of_Plan') ? 
+                        `${value.toFixed(1)}%` : value.toFixed(2);
+                    tableHtml += `<td class="number">${formatValue}</td>`;
+                });
+                
+                if (selectedCompanies.length > 1) {
+                    const formatTotal = metric.includes('Growth') || metric.includes('Retention') || metric.includes('of_Plan') ? 
+                        `${(total / selectedCompanies.length).toFixed(1)}%` : total.toFixed(2);
+                    tableHtml += `<td class="number"><strong>${formatTotal}</strong></td>`;
+                }
+                
+                tableHtml += '</tr>';
+            });
+
+            tableHtml += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = tableHtml;
+            document.getElementById('tableModal').style.display = 'block';
+        }
+
+        function closeTableView() {
+            document.getElementById('tableModal').style.display = 'none';
+        }
+
+        // Event listeners
+        document.getElementById('timeRange').addEventListener('change', updateCharts);
+        document.getElementById('company-bb').addEventListener('change', updateCharts);
+        document.getElementById('company-port').addEventListener('change', updateCharts);
+        document.getElementById('company-iten').addEventListener('change', updateCharts);
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('tableModal');
+            if (event.target === modal) {
+                closeTableView();
+            }
+        }
+
+        // Initial load
+        updateCharts();
+    </script>
+</body>
+</html>
